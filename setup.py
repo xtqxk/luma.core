@@ -3,11 +3,12 @@
 
 import os
 import sys
+from io import open
 from setuptools import setup
 
 
-def read_file(fname):
-    with open(os.path.join(os.path.dirname(__file__), fname)) as r:
+def read_file(fname, encoding='utf-8'):
+    with open(os.path.join(os.path.dirname(__file__), fname), encoding=encoding) as r:
         return r.read()
 
 
@@ -24,6 +25,14 @@ test_deps = [
     "pytest-cov"
 ]
 
+install_deps = [
+    'pillow>=4.0.0',
+    'smbus2',
+    'monotonic;python_version<"3.3"',
+    'spidev;platform_system=="Linux"',
+    'RPI.GPIO;platform_system=="Linux"'
+]
+
 setup(
     name="luma.core",
     version=version,
@@ -37,13 +46,7 @@ setup(
     download_url="https://github.com/rm-hull/luma.core/tarball/" + version,
     namespace_packages=["luma"],
     packages=["luma.core", "luma.core.legacy", "luma.core.interface"],
-    install_requires=[
-        'pillow>=4.0.0',
-        'smbus2',
-        'spidev',
-        'RPi.GPIO',
-        'monotonic;python_version<"3.3"'
-    ],
+    install_requires=install_deps,
     setup_requires=pytest_runner,
     tests_require=test_deps,
     extras_require={
