@@ -12,7 +12,8 @@ import errno
 from luma.core import cmdline, error
 from luma.core.interface.serial import __all__ as iface_types
 
-from helpers import get_reference_file, patch, Mock, i2c_error
+from helpers import (get_reference_file, patch, Mock, i2c_error,
+    rpi_gpio_missing, spidev_missing)
 
 import pytest
 
@@ -53,6 +54,38 @@ def test_get_choices_unknown_module():
     """
     result = cmdline.get_choices('foo')
     assert result == []
+
+
+def test_get_library_version():
+    """
+    :py:func:`luma.core.cmdline.get_library_version` returns the version number
+    for the specified library name.
+    """
+    lib_name = 'hotscreenz'
+    lib_version = '0.1.2'
+
+    # set version nr for fake luma library
+    luma_fake_lib = Mock()
+    luma_fake_lib.__version__ = lib_version
+
+    with patch.dict('sys.modules', {'luma.' + lib_name: luma_fake_lib}):
+        assert cmdline.get_library_version(lib_name) == lib_version
+
+
+def test_get_library_for_display_type():
+    """
+    :py:func:`luma.core.cmdline.get_library_for_display_type` returns the
+    the library name for a particular display.
+    """
+    display_type = 'coolscreen'
+    lib_name = 'screens'
+
+    with patch('luma.core.cmdline.get_display_types') as mocka:
+        mocka.return_value = {
+            lib_name: [display_type, 'bar'],
+            'emulator': ['x', 'y']
+        }
+        assert cmdline.get_library_for_display_type(display_type) == lib_name
 
 
 def test_load_config_file_parse():
@@ -113,6 +146,9 @@ def test_make_serial_spi():
     try:
         factory = cmdline.make_serial(test_spi_opts)
         assert 'luma.core.interface.serial.spi' in repr(factory.spi())
+    except ImportError:
+        # non-rpi platform, e.g. macos
+        pytest.skip(rpi_gpio_missing)
     except error.UnsupportedPlatform as e:
         # non-rpi platform, e.g. ubuntu 64-bit
         pytest.skip('{0} ({1})'.format(type(e).__name__, str(e)))
@@ -132,6 +168,8 @@ def test_make_serial_spi_alt_gpio():
         try:
             factory = cmdline.make_serial(opts)
             assert 'luma.core.interface.serial.spi' in repr(factory.spi())
+        except ImportError:
+            pytest.skip(spidev_missing)
         except error.DeviceNotFoundError as e:
             # non-rpi platform, e.g. ubuntu 64-bit
             pytest.skip('{0} ({1})'.format(type(e).__name__, str(e)))
@@ -168,6 +206,8 @@ def test_create_device_oled():
         try:
             device = cmdline.create_device(args, display_types=display_types)
             assert device == display_name
+        except ImportError:
+            pytest.skip(rpi_gpio_missing)
         except error.UnsupportedPlatform as e:
             # non-rpi platform
             pytest.skip('{0} ({1})'.format(type(e).__name__, str(e)))
